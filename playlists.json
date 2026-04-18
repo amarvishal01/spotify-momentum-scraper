@@ -1,0 +1,26 @@
+[
+  {
+    "chart_key": "viral_global",
+    "chart_label": "Viral Global",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbLiRSasKsNU9",
+    "limit": 50
+  },
+  {
+    "chart_key": "viral_de",
+    "chart_label": "Viral Germany",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbNv6cjoMVCyg",
+    "limit": 50
+  },
+  {
+    "chart_key": "top_global",
+    "chart_label": "Top Global",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbMDoHDwVN2tF",
+    "limit": 50
+  },
+  {
+    "chart_key": "top_de",
+    "chart_label": "Top Germany",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbJiZcmkrIHGU",
+    "limit": 50
+  }
+]
