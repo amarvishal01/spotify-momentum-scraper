@@ -22,5 +22,30 @@
     "chart_label": "Top Germany",
     "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbJiZcmkrIHGU",
     "limit": 50
+  },
+
+  {
+    "chart_key": "topsongs_global",
+    "chart_label": "Top Songs Global",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbNG2KDcFcKOF",
+    "limit": 50
+  },
+  {
+    "chart_key": "topsongs_india",
+    "chart_label": "Top Songs India",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbMWDif5SCBJq",
+    "limit": 50
+  },
+  {
+    "chart_key": "top50_india",
+    "chart_label": "Top 50 India",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbLZ52XmnySJg",
+    "limit": 50
+  },
+  {
+    "chart_key": "viral_india",
+    "chart_label": "Viral India",
+    "playlist_url": "https://open.spotify.com/playlist/37i9dQZEVXbK4NvPi6Sxit",
+    "limit": 50
   }
 ]
