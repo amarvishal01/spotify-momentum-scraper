@@ -159,19 +159,19 @@ async function writeOutputs(allRows) {
   return { jsonPath, csvPath };
 }
 
-async function sendCsvToMake(csvPath) {
-  const csvBuffer = await fs.readFile(csvPath);
-  const filename = path.basename(csvPath);
-
-  console.log(`Sending CSV to Make: ${filename}`);
+async function sendRowsToMake(allRows) {
+  console.log(`Sending ${allRows.length} rows to Make as JSON`);
 
   const response = await fetch(MAKE_WEBHOOK_URL, {
     method: "POST",
     headers: {
-      "Content-Type": "text/csv",
-      "X-Filename": filename
+      "Content-Type": "application/json"
     },
-    body: csvBuffer
+    body: JSON.stringify({
+      source: "github_spotify_scraper",
+      sent_at: new Date().toISOString(),
+      rows: allRows
+    })
   });
 
   if (!response.ok) {
@@ -179,7 +179,8 @@ async function sendCsvToMake(csvPath) {
     throw new Error(`Make webhook failed: ${response.status} ${text}`);
   }
 
-  console.log("CSV sent to Make successfully");
+  console.log("Rows sent to Make successfully");
+
 }
 
 async function main() {
@@ -208,9 +209,12 @@ async function main() {
     throw new Error("No rows scraped.");
   }
 
-  const { csvPath } = await writeOutputs(allRows);
-  await sendCsvToMake(csvPath);
+await writeOutputs(allRows);
+await sendRowsToMake(allRows);
 }
+
+
+
 
 main().catch(err => {
   console.error(err);
