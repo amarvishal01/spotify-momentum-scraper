@@ -7,12 +7,16 @@ const OUTPUT_DIR = "output";
 const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/n5x7qcwd66ow72euk62kgt3zpqcwev6a";
 
 function todayStr() {
-  const d = new Date();
-  return d.toISOString().slice(0, 10);
+  return new Date().toISOString().slice(0, 10);
 }
 
-function sanitizeText(value) {
-  return String(value ?? "").replace(/\s+/g, " ").trim();
+function cleanCell(value) {
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .replace(/\t/g, " ")
+    .replace(/\n/g, " ")
+    .replace(/\r/g, " ")
+    .trim();
 }
 
 async function ensureOutputDir() {
@@ -81,20 +85,16 @@ async function scrapePlaylist(page, playlist) {
       const trackTitle = allText(link);
       if (!trackTitle) continue;
 
-      let artistName = "";
       const artistAnchors = Array.from(row.querySelectorAll('a[href*="/artist/"]'));
 
-      if (artistAnchors.length > 0) {
-        artistName = artistAnchors
-          .map(a => allText(a))
-          .filter(Boolean)
-          .join(", ");
-      }
+      const artistName = artistAnchors
+        .map(a => allText(a))
+        .filter(Boolean)
+        .join(", ");
 
-      let rank = "";
       const rowText = allText(row);
       const rankMatch = rowText.match(/^(\d+)\s/);
-      if (rankMatch) rank = rankMatch[1];
+      const rank = rankMatch ? rankMatch[1] : String(results.length + 1);
 
       seen.add(href);
 
@@ -102,7 +102,7 @@ async function scrapePlaylist(page, playlist) {
         chart_date: chartDate,
         chart_key: playlistMeta.chart_key,
         chart_label: playlistMeta.chart_label,
-        rank: rank || String(results.length + 1),
+        rank,
         track_title: trackTitle,
         artist_name: artistName,
         track_link: href
@@ -122,7 +122,7 @@ async function writeOutputs(allRows) {
 
   const date = todayStr();
   const jsonPath = path.join(OUTPUT_DIR, `raw_scrape_${date}.json`);
-  const csvPath = path.join(OUTPUT_DIR, `raw_scrape_${date}.csv`);
+  const tsvPath = path.join(OUTPUT_DIR, `raw_scrape_${date}.tsv`);
 
   await fs.writeFile(jsonPath, JSON.stringify(allRows, null, 2), "utf8");
 
@@ -136,27 +136,19 @@ async function writeOutputs(allRows) {
     "track_link"
   ];
 
- const csvLines = [
-  headers.join("\t"),
-  ...allRows.map(row =>
-    headers
-      .map(h =>
-        String(row[h] ?? "")
-          .replace(/\t/g, " ")
-          .replace(/\n/g, " ")
-          .replace(/\r/g, " ")
-          .trim()
-      )
-      .join("\t")
-  )
-];
-  
-  await fs.writeFile(csvPath, csvLines.join("\n"), "utf8");
+  const tsvLines = [
+    headers.join("\t"),
+    ...allRows.map(row =>
+      headers.map(h => cleanCell(row[h])).join("\t")
+    )
+  ];
+
+  await fs.writeFile(tsvPath, tsvLines.join("\n"), "utf8");
 
   console.log(`Saved ${jsonPath}`);
-  console.log(`Saved ${csvPath}`);
+  console.log(`Saved ${tsvPath}`);
 
-  return { jsonPath, csvPath };
+  return { jsonPath, tsvPath };
 }
 
 async function sendRowsToMake(allRows) {
@@ -180,41 +172,42 @@ async function sendRowsToMake(allRows) {
   }
 
   console.log("Rows sent to Make successfully");
-
 }
 
 async function main() {
   const playlists = await loadPlaylists();
+
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
 
   const allRows = [];
 
-  for (const playlist of playlists) {
-    console.log(`Scraping ${playlist.chart_key} ...`);
-    try {
-      const rows = await scrapePlaylist(page, playlist);
-      console.log(`  -> got ${rows.length} rows`);
-      allRows.push(...rows);
-    } catch (err) {
-      console.error(`  -> failed: ${err.message}`);
-    }
-    await page.waitForTimeout(2000);
-  }
+  try {
+    for (const playlist of playlists) {
+      console.log(`Scraping ${playlist.chart_key} ...`);
 
-  await browser.close();
+      try {
+        const rows = await scrapePlaylist(page, playlist);
+        console.log(`  -> got ${rows.length} rows`);
+        allRows.push(...rows);
+      } catch (err) {
+        console.error(`  -> failed: ${err.message}`);
+      }
+
+      await page.waitForTimeout(2000);
+    }
+  } finally {
+    await browser.close();
+  }
 
   if (!allRows.length) {
     throw new Error("No rows scraped.");
   }
 
-await writeOutputs(allRows);
-await sendRowsToMake(allRows);
+  await writeOutputs(allRows);
+  await sendRowsToMake(allRows);
 }
-
-
-
 
 main().catch(err => {
   console.error(err);
