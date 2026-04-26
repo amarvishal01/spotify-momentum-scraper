@@ -4,6 +4,7 @@ import { chromium } from "playwright";
 
 const PLAYLISTS_FILE = "playlists.json";
 const OUTPUT_DIR = "output";
+const MAKE_WEBHOOK_URL = "https://hook.us2.make.com/n5x7qcwd66ow72euk62kgt3zpqcwev6a";
 
 function todayStr() {
   const d = new Date();
@@ -51,7 +52,6 @@ async function scrapePlaylist(page, playlist) {
   await closeCookieOrConsent(page);
   await page.waitForTimeout(3000);
 
-  // Scroll to load enough rows
   for (let i = 0; i < 8; i++) {
     await page.mouse.wheel(0, 3000);
     await page.waitForTimeout(1200);
@@ -60,10 +60,9 @@ async function scrapePlaylist(page, playlist) {
   const rows = await page.evaluate((playlistMeta) => {
     const chartDate = new Date().toISOString().slice(0, 10);
 
-    const allText = (el) => (el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "");
+    const allText = (el) =>
+      el ? (el.textContent || "").replace(/\s+/g, " ").trim() : "";
 
-    // Spotify web UI changes sometimes. We try a broad strategy:
-    // find row-like elements with track links.
     const trackLinks = Array.from(document.querySelectorAll('a[href*="/track/"]'));
     const seen = new Set();
     const results = [];
@@ -72,7 +71,11 @@ async function scrapePlaylist(page, playlist) {
       const href = link.href;
       if (!href || seen.has(href)) continue;
 
-      const row = link.closest('[role="row"]') || link.closest('div[draggable="true"]') || link.parentElement;
+      const row =
+        link.closest('[role="row"]') ||
+        link.closest('div[draggable="true"]') ||
+        link.parentElement;
+
       if (!row) continue;
 
       const trackTitle = allText(link);
@@ -80,8 +83,12 @@ async function scrapePlaylist(page, playlist) {
 
       let artistName = "";
       const artistAnchors = Array.from(row.querySelectorAll('a[href*="/artist/"]'));
+
       if (artistAnchors.length > 0) {
-        artistName = artistAnchors.map(a => allText(a)).filter(Boolean).join(", ");
+        artistName = artistAnchors
+          .map(a => allText(a))
+          .filter(Boolean)
+          .join(", ");
       }
 
       let rank = "";
@@ -90,6 +97,7 @@ async function scrapePlaylist(page, playlist) {
       if (rankMatch) rank = rankMatch[1];
 
       seen.add(href);
+
       results.push({
         chart_date: chartDate,
         chart_key: playlistMeta.chart_key,
@@ -138,8 +146,34 @@ async function writeOutputs(allRows) {
   ];
 
   await fs.writeFile(csvPath, csvLines.join("\n"), "utf8");
+
   console.log(`Saved ${jsonPath}`);
   console.log(`Saved ${csvPath}`);
+
+  return { jsonPath, csvPath };
+}
+
+async function sendCsvToMake(csvPath) {
+  const csvBuffer = await fs.readFile(csvPath);
+  const filename = path.basename(csvPath);
+
+  console.log(`Sending CSV to Make: ${filename}`);
+
+  const response = await fetch(MAKE_WEBHOOK_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/csv",
+      "X-Filename": filename
+    },
+    body: csvBuffer
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Make webhook failed: ${response.status} ${text}`);
+  }
+
+  console.log("CSV sent to Make successfully");
 }
 
 async function main() {
@@ -168,7 +202,8 @@ async function main() {
     throw new Error("No rows scraped.");
   }
 
-  await writeOutputs(allRows);
+  const { csvPath } = await writeOutputs(allRows);
+  await sendCsvToMake(csvPath);
 }
 
 main().catch(err => {
