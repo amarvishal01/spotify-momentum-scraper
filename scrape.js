@@ -136,15 +136,21 @@ async function writeOutputs(allRows) {
     "track_link"
   ];
 
-  const csvLines = [
-    headers.join(","),
-    ...allRows.map(row =>
-      headers
-        .map(h => `"${String(row[h] ?? "").replace(/"/g, '""')}"`)
-        .join(",")
-    )
-  ];
-
+ const csvLines = [
+  headers.join("\t"),
+  ...allRows.map(row =>
+    headers
+      .map(h =>
+        String(row[h] ?? "")
+          .replace(/\t/g, " ")
+          .replace(/\n/g, " ")
+          .replace(/\r/g, " ")
+          .trim()
+      )
+      .join("\t")
+  )
+];
+  
   await fs.writeFile(csvPath, csvLines.join("\n"), "utf8");
 
   console.log(`Saved ${jsonPath}`);
